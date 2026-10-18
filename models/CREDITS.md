@@ -9,7 +9,7 @@ Dos [modelos de exemplo do glTF](https://github.com/KhronosGroup/glTF-Sample-Ass
 - Rigging e animação: tomkranis — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode)
 - Conversão para glTF: @AsoboStudio e @scurest — [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode)
 
-## `personagem.glb` / `personagem/` — modelo local (não versionado)
+## `local/` — modelos locais (não versionados)
 
-Espaço para um modelo seu, só para teste local; está no `.gitignore` e não vai para o GitHub
-Pages. Ver o README.
+Espaço para modelos seus, só para teste local, listados em `local.json`; ambos estão no
+`.gitignore` e não vão para o GitHub Pages. Ver o README.

@@ -30,19 +30,30 @@ A fase 2 (`ar.html`) só funciona no celular (Chrome Android com "Google Play Se
 tocar em "Entrar em AR", apontar para o chão ou uma mesa até aparecer o anel e tocar para pôr o
 cubo.
 
-### Modelo 3D no lugar do cubo
+### Modelos 3D
 
-O `ar.html` troca o cubo por um modelo glTF, tentando nesta ordem:
+No AR, o botão com o nome do modelo alterna entre os modelos listados em dois arquivos (os locais
+primeiro; o cubo é sempre a última opção):
 
-1. `models/personagem.glb` ou `models/personagem/scene.gltf` — **modelo seu, só local**: os dois
-   estão no `.gitignore` e não vão para o GitHub Pages (use para modelos com direitos autorais).
-   No Sketchfab, *Download 3D Model* → **GLB** (salvar como `models/personagem.glb`) ou
-   **glTF** (extrair o zip inteiro em `models/personagem/`). Modelos com compressão Draco não
-   carregam.
-2. `models/fox.glb` — raposa animada dos modelos de exemplo do glTF (licenças livres, ver
-   [`models/CREDITS.md`](models/CREDITS.md)). É o que aparece na versão publicada.
+- `models/models.json` — modelos publicados, hoje só a raposa animada (`fox.glb`) dos modelos de
+  exemplo do glTF (licenças livres, ver [`models/CREDITS.md`](models/CREDITS.md)).
+- `models/local.json` — **modelos seus, só local**: este arquivo e a pasta `models/local/` estão
+  no `.gitignore` e não vão para o GitHub Pages (use para modelos com direitos autorais).
 
-O modelo é redimensionado para ~30 cm e, ao ser posicionado, fica de frente para quem tocou.
+Formato dos dois:
+
+```json
+[
+  { "name": "Mario", "url": "models/local/mario.glb" }
+]
+```
+
+No Sketchfab, *Download 3D Model* → **GLB** e salvar em `models/local/`. Também serve **glTF**
+(extrair o zip numa pasta e apontar `url` para o `scene.gltf` dela). Modelos com compressão Draco
+não carregam.
+
+Cada modelo é redimensionado para ~60 cm e, ao ser posicionado, fica de frente para quem tocou;
+os botões − e + ajustam o tamanho.
 
 ## Testar no celular
 

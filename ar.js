@@ -6,7 +6,7 @@
 //
 // Fluxo: uma retícula (anel) mostra onde o raio que sai do centro da tela
 // encontra uma superfície real (hit-test); o toque põe o cubo ali.
-// Se houver um modelo 3D em models/, ele entra no lugar do cubo.
+// Um botão troca o cubo pelos modelos 3D listados em models/.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -63,17 +63,24 @@ cube.add(new THREE.LineSegments(
 cube.position.y = CUBE_SIZE / 2;
 content.add(cube);
 
-// ---------- Modelo 3D (opcional) ----------
+// ---------- Modelos 3D ----------
 
-// Tentados em ordem; o primeiro que carregar substitui o cubo. Os dois
-// "personagem" são para um modelo seu, só local (estão no .gitignore); sem
-// eles o servidor responde 404 e vale o Fox. Se nada carregar, fica o cubo.
-const MODEL_URLS = ['models/personagem.glb', 'models/personagem/scene.gltf', 'models/fox.glb'];
+// O botão de modelo alterna entre os listados em models/models.json
+// (publicados) e models/local.json (opcional, no .gitignore: modelos seus,
+// só para teste local). Os locais vêm primeiro; o cubo é sempre o último.
+// Formato: [{ "name": "Raposa", "url": "models/fox.glb" }].
+const MODEL_LISTS = ['models/local.json', 'models/models.json'];
 // Maior dimensão do modelo depois de escalado, em metros.
 const MODEL_SIZE = 0.6;
 
-let mixer = null;   // toca a animação do modelo, se ele tiver uma
+const models = [];        // { name, url }; url null = o cubo
+let modelIndex = 0;
+let mixer = null;         // toca a animação do modelo à vista, se ele tiver uma
+let showRequests = 0;     // conta trocas, para ignorar carregamentos atrasados
 const clock = new THREE.Clock();
+const loader = new GLTFLoader();
+const loadedModels = new Map(); // url → Promise de { object, mixer }, cada um carregado uma vez só
+const modelButton = document.getElementById('btn-model');
 
 // O cubo usa cores chapadas (MeshBasicMaterial), mas modelos glTF vêm com
 // materiais que dependem de luz: uma luz ambiente (céu/chão) e um "sol".
@@ -82,37 +89,74 @@ const sun = new THREE.DirectionalLight(0xffffff, 2);
 sun.position.set(1, 2, 1);
 scene.add(sun);
 
-async function loadFirstModel() {
-  const loader = new GLTFLoader();
-  for (const url of MODEL_URLS) {
-    try {
-      return await loader.loadAsync(url);
-    } catch {
-      // não existe ou não carregou: tenta o próximo
-    }
+async function readModelList(url) {
+  try {
+    const response = await fetch(url);
+    return response.ok ? await response.json() : []; // 404 = lista não existe
+  } catch {
+    return [];
   }
-  return null;
 }
 
-loadFirstModel().then((gltf) => {
-  if (!gltf) {
-    return;
-  }
+// Cada modelo vem na sua própria escala e posição (no Fox, 1 unidade ≈
+// 1 cm). Normalizar: maior dimensão = MODEL_SIZE, centro em X/Z na origem
+// e pés em Y = 0, para ficar apoiado na superfície.
+function normalize(gltf) {
   const model = gltf.scene;
-  // Cada modelo vem na sua própria escala e posição (no Fox, 1 unidade ≈
-  // 1 cm). Normalizar: maior dimensão = MODEL_SIZE, centro em X/Z na origem
-  // e pés em Y = 0, para ficar apoiado na superfície.
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
   box.setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
   model.position.set(-center.x, -box.min.y, -center.z);
-  content.remove(cube);
-  content.add(model);
+
+  let modelMixer = null;
   if (gltf.animations.length > 0) {
-    mixer = new THREE.AnimationMixer(model);
-    mixer.clipAction(gltf.animations[0]).play();
+    modelMixer = new THREE.AnimationMixer(model);
+    modelMixer.clipAction(gltf.animations[0]).play();
+  }
+  return { object: model, mixer: modelMixer };
+}
+
+function loadModel(url) {
+  if (!loadedModels.has(url)) {
+    loadedModels.set(url, loader.loadAsync(url).then(normalize).catch((error) => {
+      loadedModels.delete(url); // falhou: tenta de novo na próxima vez
+      throw error;
+    }));
+  }
+  return loadedModels.get(url);
+}
+
+async function showModel(index) {
+  modelIndex = index;
+  const { name, url } = models[index];
+  modelButton.textContent = `${name} ⟳`;
+  const request = ++showRequests;
+  let shown = { object: cube, mixer: null };
+  if (url) {
+    try {
+      shown = await loadModel(url);
+    } catch {
+      hint.textContent = `Não foi possível carregar "${name}"; mostrando o cubo.`;
+    }
+  }
+  if (request !== showRequests) {
+    return; // o usuário já pediu outro modelo enquanto este carregava
+  }
+  content.clear();
+  content.add(shown.object);
+  mixer = shown.mixer;
+}
+
+Promise.all(MODEL_LISTS.map(readModelList)).then((lists) => {
+  models.push(...lists.flat(), { name: 'Cubo', url: null });
+  showModel(0);
+});
+
+modelButton.addEventListener('click', () => {
+  if (models.length > 0) {
+    showModel((modelIndex + 1) % models.length);
   }
 });
 
