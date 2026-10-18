@@ -1,0 +1,14 @@
+# Pessoal / local
+CLAUDE.local.md
+.claude/settings.local.json
+.env
+.env.*
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (caso surja algum tooling opcional)
+node_modules/
