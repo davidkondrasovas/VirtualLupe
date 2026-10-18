@@ -25,8 +25,9 @@ Especificação completa (fases, detalhes técnicos, critérios de aceite, fora 
 
 ## Comandos
 
-- Servidor local: `python -m http.server 3004` (faixa reservada 3004–3006; nunca matar processo
-  por nome — localizar PID via `netstat -ano`).
+- Servidor local: `python dev-server.py` (porta 3004; faixa reservada 3004–3006). Igual ao
+  `http.server`, mas com `Cache-Control: no-store` — sem isso o Chrome do celular reusa `.js`
+  antigo. Nunca matar processo por nome — localizar PID via `netstat -ano`.
 - Testes: `node --test` — lógica pura (conversão orientação → quaternion, órbita) fica em módulo
   próprio sem depender do Three.js, para ser testável no Node sem npm.
 - Teste no celular: ver `README.md` (port forwarding via `chrome://inspect` ou túnel HTTPS).

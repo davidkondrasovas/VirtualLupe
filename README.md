@@ -13,15 +13,22 @@ Especificação completa: [`docs/contexto-projeto.md`](docs/contexto-projeto.md)
 | Página | Fase | Status |
 |---|---|---|
 | `index.html` | 1 — orientação do aparelho (3DoF): modos "órbita" e "olhar em volta" | pronto |
-| `ar.html` | 2 — WebXR AR (6DoF, Chrome Android + ARCore) | em andamento |
+| `ar.html` | 2 — WebXR AR (6DoF, Chrome Android + ARCore) | pronto |
 
 ## Rodar localmente
 
 ```sh
-python -m http.server 3004
+python dev-server.py
 ```
 
 Abrir `http://localhost:3004`. No PC, sem sensores, dá para girar com o mouse.
+
+O `dev-server.py` é o `python -m http.server` com cache desligado: sem isso o Chrome do celular
+continua rodando a versão antiga dos `.js` depois de uma alteração.
+
+A fase 2 (`ar.html`) só funciona no celular (Chrome Android com "Google Play Services for AR"):
+tocar em "Entrar em AR", apontar para o chão ou uma mesa até aparecer o anel e tocar para pôr o
+cubo.
 
 ## Testar no celular
 
