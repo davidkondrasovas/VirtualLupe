@@ -36,8 +36,10 @@ Especificação completa (fases, detalhes técnicos, critérios de aceite, fora 
 - Fundação/setup direto em `main`; cada feature/passo em branch própria (`feature/...`).
 - Commits pequenos, um passo de cada vez — o usuário testa no celular entre eles.
 - Commit aprovado = add + commit + push (sem confirmação separada para o push).
-- **Publicação via GitHub Pages a partir de `main`**: merge em `main` = publicar. Merge só após
-  validação e confirmação explícita do usuário.
+- **Publicação via GitHub Pages a partir de `main`** (repo público
+  `davidkondrasovas/VirtualLupe` → https://davidkondrasovas.github.io/VirtualLupe/): merge em
+  `main` = publicar. Merge só após validação e confirmação explícita do usuário. `.nojekyll` na
+  raiz: arquivos servidos como estão, sem Jekyll.
 - Planos aprovados em plan mode: copiar para `docs/plans/` com nome descritivo e commitar.
 
 ## Regras de eficiência de sessão
