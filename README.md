@@ -13,7 +13,7 @@ Especificação completa: [`docs/contexto-projeto.md`](docs/contexto-projeto.md)
 | Página | Fase | Status |
 |---|---|---|
 | `index.html` | 1 — orientação do aparelho (3DoF): modos "órbita" e "olhar em volta" | pronto |
-| `ar.html` | 2 — WebXR AR (6DoF, Chrome Android + ARCore) | a fazer |
+| `ar.html` | 2 — WebXR AR (6DoF, Chrome Android + ARCore) | em andamento |
 
 ## Rodar localmente
 
