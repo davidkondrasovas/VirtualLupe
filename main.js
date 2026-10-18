@@ -1,11 +1,14 @@
-// Fase 1 — modo órbita: a orientação do celular move a câmera numa esfera
-// em volta do cubo, sempre olhando para ele. A matemática está em
-// orientation.js; aqui ficam a cena, os eventos e a interface.
+// Fase 1 — orientação do aparelho (3DoF), em dois modos para comparar:
+// - órbita: a orientação do celular move a câmera numa esfera em volta do
+//   cubo, sempre olhando para ele (truque que imita "contornar" o objeto);
+// - olhar em volta: a câmera fica parada e só gira (fisicamente correto).
+// A matemática está em orientation.js; aqui ficam a cena, os eventos e a
+// interface.
 
 import * as THREE from 'three';
 import {
   IDENTITY, multiply, slerp, fromEulerYXZ,
-  deviceQuaternion, recenterOffset, orbitPosition,
+  deviceQuaternion, recenterOffset, cameraPosition,
 } from './orientation.js';
 
 // Distância da câmera ao centro do cubo.
@@ -59,6 +62,7 @@ window.addEventListener('resize', () => {
 
 // ---------- Estado ----------
 
+let mode = 'orbita';              // 'orbita' | 'olhar'
 let source = 'aguardando';       // 'sensores' | 'mouse'
 let rawQuaternion = IDENTITY;     // orientação do aparelho, sem correção
 let yawOffset = null;             // correção do "recentrar" (null = recentrar no próximo dado)
@@ -118,6 +122,7 @@ async function start() {
   }
   document.getElementById('start').hidden = true;
   document.getElementById('toolbar').hidden = false;
+  document.getElementById('modes').hidden = false;
 }
 
 // ---------- Fallback: arrastar com mouse/dedo ----------
@@ -141,8 +146,11 @@ window.addEventListener('pointermove', (e) => {
   if (!dragging || source !== 'mouse') {
     return;
   }
-  dragYaw -= (e.clientX - dragging.x) * DRAG_SPEED;
-  dragPitch -= (e.clientY - dragging.y) * DRAG_SPEED;
+  // A cena acompanha o dedo nos dois modos: na órbita isso significa girar
+  // a câmera para um lado; olhando em volta, para o lado oposto.
+  const sign = mode === 'olhar' ? -1 : 1;
+  dragYaw -= sign * (e.clientX - dragging.x) * DRAG_SPEED;
+  dragPitch -= sign * (e.clientY - dragging.y) * DRAG_SPEED;
   dragPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, dragPitch));
   dragging = { x: e.clientX, y: e.clientY };
   targetQuaternion = fromEulerYXZ(dragPitch, dragYaw, 0);
@@ -171,6 +179,14 @@ document.getElementById('btn-recenter').addEventListener('click', () => {
   }
 });
 
+const modeButtons = document.querySelectorAll('#modes button');
+modeButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    mode = button.dataset.mode;
+    modeButtons.forEach((b) => b.classList.toggle('active', b === button));
+  });
+});
+
 const debug = document.getElementById('debug');
 document.getElementById('btn-debug').addEventListener('click', () => {
   debug.hidden = !debug.hidden;
@@ -182,7 +198,7 @@ function updateDebug() {
   }
   const fmt = (v) => (v === undefined ? '—' : v.toFixed(1).padStart(6));
   debug.textContent = [
-    `modo:   órbita`,
+    `modo:   ${mode === 'olhar' ? 'olhar em volta' : 'órbita'}`,
     `fonte:  ${source}`,
     `alpha: ${fmt(lastAngles?.alpha)}°`,
     `beta:  ${fmt(lastAngles?.beta)}°`,
@@ -196,7 +212,7 @@ function updateDebug() {
 renderer.setAnimationLoop(() => {
   currentQuaternion = slerp(currentQuaternion, targetQuaternion, SMOOTHING);
   camera.quaternion.fromArray(currentQuaternion);
-  camera.position.fromArray(orbitPosition(currentQuaternion, CUBE_CENTER, ORBIT_RADIUS));
+  camera.position.fromArray(cameraPosition(mode, currentQuaternion, CUBE_CENTER, ORBIT_RADIUS));
   renderer.render(scene, camera);
   updateDebug();
 });

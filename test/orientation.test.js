@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   IDENTITY, fromAxisAngle, multiply, rotateVector, slerp,
-  deviceQuaternion, yawOf, recenterOffset, orbitPosition,
+  deviceQuaternion, yawOf, recenterOffset, orbitPosition, cameraPosition,
 } from '../orientation.js';
 
 const FORWARD = [0, 0, -1];
@@ -90,4 +90,21 @@ test('Dado quaternion alvo com sinal invertido, Quando slerp, Então segue o cam
   const b = fromAxisAngle([0, 1, 0], 0.2);
   const negB = b.map((v) => -v);
   assertSameRotation(slerp(IDENTITY, negB, 0.5), fromAxisAngle([0, 1, 0], 0.1));
+});
+
+test('Dado modo olhar em volta, Quando o celular gira, Então a câmera não sai do lugar', () => {
+  const center = [1, 2, 3];
+  for (const q of [IDENTITY, deviceQuaternion(200, 40, -30, 0), deviceQuaternion(10, 120, 60, 90)]) {
+    assertVecClose(cameraPosition('olhar', q, center, 4), [1, 2, 7]);
+  }
+});
+
+test('Dado celular recentrado, Quando alterna modos, Então os dois mostram a mesma imagem', () => {
+  const center = [0, 0, 0];
+  assertVecClose(cameraPosition('olhar', IDENTITY, center, 4), cameraPosition('orbita', IDENTITY, center, 4));
+});
+
+test('Dado modo órbita, Quando calcula posição, Então usa a órbita', () => {
+  const q = deviceQuaternion(200, 40, -30, 0);
+  assertVecClose(cameraPosition('orbita', q, [0, 0, 0], 4), orbitPosition(q, [0, 0, 0], 4));
 });

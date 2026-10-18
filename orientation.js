@@ -118,3 +118,16 @@ export function orbitPosition(q, center, radius) {
   const [ox, oy, oz] = rotateVector([0, 0, radius], q);
   return [center[0] + ox, center[1] + oy, center[2] + oz];
 }
+
+// Modo "olhar em volta": a câmera fica parada e só gira com o celular — o
+// comportamento fisicamente correto para 3DoF (como uma foto 360°). Ela fica
+// no mesmo ponto onde a órbita começa, então com o celular recentrado os dois
+// modos mostram a mesma imagem; a diferença só aparece ao mexer.
+export function lookAroundPosition(center, radius) {
+  return [center[0], center[1], center[2] + radius];
+}
+
+// Posição da câmera para o modo escolhido ('orbita' | 'olhar').
+export function cameraPosition(mode, q, center, radius) {
+  return mode === 'olhar' ? lookAroundPosition(center, radius) : orbitPosition(q, center, radius);
+}
