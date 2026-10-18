@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Cubo Janela</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1e1f24; color: #eee;
+      font-family: system-ui, sans-serif; touch-action: none; }
+    canvas { display: block; }
+    button { font: inherit; padding: 0.6em 1.2em; border: 0; border-radius: 0.5em;
+      background: #3d6fd9; color: #fff; cursor: pointer; }
+    button.secondary { background: #ffffff22; }
+    #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 1em; padding: 1.5em; text-align: center; background: #1e1f24; }
+    #start p { max-width: 28em; line-height: 1.4; color: #bbb; }
+    #toolbar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 0.5em;
+      justify-content: center; padding: 1em; }
+    #notice { position: fixed; left: 1em; right: 1em; top: 1em; text-align: center; font-size: 0.9em;
+      color: #ffd479; }
+    #debug { position: fixed; left: 0.5em; top: 3em; margin: 0; padding: 0.5em 0.7em;
+      font: 12px/1.4 ui-monospace, monospace; background: #000a; border-radius: 0.4em; }
+    [hidden] { display: none !important; }
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="start">
+    <h1>Cubo Janela</h1>
+    <p>Um cubo flutua atrás da tela. Mova o celular para olhar em volta dele, como se o aparelho
+      fosse uma janela.</p>
+    <p>Os sensores medem só a <strong>rotação</strong> do aparelho, não a posição: o celular sabe
+      que virou, mas não que andou.</p>
+    <button id="btn-start">Iniciar</button>
+  </div>
+
+  <div id="toolbar" hidden>
+    <button id="btn-recenter">Recentrar</button>
+    <button id="btn-debug" class="secondary">Debug</button>
+  </div>
+  <div id="notice" hidden></div>
+  <pre id="debug" hidden></pre>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
