@@ -188,6 +188,8 @@ modeButtons.forEach((button) => {
 });
 
 const debug = document.getElementById('debug');
+// `?debug` na URL já abre o overlay (útil se os botões não estiverem visíveis).
+debug.hidden = !new URLSearchParams(location.search).has('debug');
 document.getElementById('btn-debug').addEventListener('click', () => {
   debug.hidden = !debug.hidden;
 });
@@ -196,6 +198,7 @@ function updateDebug() {
   if (debug.hidden) {
     return;
   }
+  const vv = window.visualViewport;
   const fmt = (v) => (v === undefined ? '—' : v.toFixed(1).padStart(6));
   debug.textContent = [
     `modo:   ${mode === 'olhar' ? 'olhar em volta' : 'órbita'}`,
@@ -204,6 +207,11 @@ function updateDebug() {
     `beta:  ${fmt(lastAngles?.beta)}°`,
     `gamma: ${fmt(lastAngles?.gamma)}°`,
     `tela:  ${fmt(screenAngle())}°`,
+    `janela: ${window.innerWidth}×${window.innerHeight}`,
+    `visual: ${vv ? `${Math.round(vv.width)}×${Math.round(vv.height)} ×${vv.scale.toFixed(2)}` : '—'}`,
+    `html:   ${document.documentElement.clientWidth}×${document.documentElement.clientHeight}`,
+    `canvas: ${renderer.domElement.clientWidth}×${renderer.domElement.clientHeight}`,
+    `dpr:    ${window.devicePixelRatio.toFixed(3)}`,
   ].join('\n');
 }
 
