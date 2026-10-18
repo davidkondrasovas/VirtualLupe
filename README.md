@@ -30,6 +30,20 @@ A fase 2 (`ar.html`) só funciona no celular (Chrome Android com "Google Play Se
 tocar em "Entrar em AR", apontar para o chão ou uma mesa até aparecer o anel e tocar para pôr o
 cubo.
 
+### Modelo 3D no lugar do cubo
+
+O `ar.html` troca o cubo por um modelo glTF, tentando nesta ordem:
+
+1. `models/personagem.glb` ou `models/personagem/scene.gltf` — **modelo seu, só local**: os dois
+   estão no `.gitignore` e não vão para o GitHub Pages (use para modelos com direitos autorais).
+   No Sketchfab, *Download 3D Model* → **GLB** (salvar como `models/personagem.glb`) ou
+   **glTF** (extrair o zip inteiro em `models/personagem/`). Modelos com compressão Draco não
+   carregam.
+2. `models/fox.glb` — raposa animada dos modelos de exemplo do glTF (licenças livres, ver
+   [`models/CREDITS.md`](models/CREDITS.md)). É o que aparece na versão publicada.
+
+O modelo é redimensionado para ~30 cm e, ao ser posicionado, fica de frente para quem tocou.
+
 ## Testar no celular
 
 Os sensores só funcionam em **contexto seguro** (HTTPS ou `localhost`).

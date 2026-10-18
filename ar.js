@@ -6,8 +6,10 @@
 //
 // Fluxo: uma retícula (anel) mostra onde o raio que sai do centro da tela
 // encontra uma superfície real (hit-test); o toque põe o cubo ali.
+// Se houver um modelo 3D em models/, ele entra no lugar do cubo.
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Unidades do WebXR são metros.
 const CUBE_SIZE = 0.2;
@@ -37,12 +39,15 @@ reticle.visible = false;
 scene.add(reticle);
 
 // O cubo fica dentro de um "suporte" cuja matriz é a pose do ponto escolhido
-// na superfície; dentro dele, o cubo sobe meia aresta para apoiar no chão
-// em vez de ficar enterrado pela metade.
+// na superfície. Dentro do suporte, `content` é o que o usuário controla:
+// giro (de frente para ele) e tamanho (botões − e +). Como sua origem é o
+// ponto de apoio, escalar não afunda nem levanta o objeto.
 const holder = new THREE.Group();
 holder.matrixAutoUpdate = false;
 holder.visible = false;
 scene.add(holder);
+const content = new THREE.Group();
+holder.add(content);
 
 // Mesmo cubo da fase 1, em escala real. Ordem das faces: +X, −X, +Y, −Y, +Z, −Z.
 const faceColors = [0xe74c3c, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0x3498db, 0xe67e22];
@@ -54,14 +59,78 @@ cube.add(new THREE.LineSegments(
   new THREE.EdgesGeometry(cube.geometry),
   new THREE.LineBasicMaterial({ color: 0x111111 }),
 ));
+// Sobe meia aresta para apoiar no chão em vez de ficar enterrado pela metade.
 cube.position.y = CUBE_SIZE / 2;
-holder.add(cube);
+content.add(cube);
+
+// ---------- Modelo 3D (opcional) ----------
+
+// Tentados em ordem; o primeiro que carregar substitui o cubo. Os dois
+// "personagem" são para um modelo seu, só local (estão no .gitignore); sem
+// eles o servidor responde 404 e vale o Fox. Se nada carregar, fica o cubo.
+const MODEL_URLS = ['models/personagem.glb', 'models/personagem/scene.gltf', 'models/fox.glb'];
+// Maior dimensão do modelo depois de escalado, em metros.
+const MODEL_SIZE = 0.6;
+
+let mixer = null;   // toca a animação do modelo, se ele tiver uma
+const clock = new THREE.Clock();
+
+// O cubo usa cores chapadas (MeshBasicMaterial), mas modelos glTF vêm com
+// materiais que dependem de luz: uma luz ambiente (céu/chão) e um "sol".
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(1, 2, 1);
+scene.add(sun);
+
+async function loadFirstModel() {
+  const loader = new GLTFLoader();
+  for (const url of MODEL_URLS) {
+    try {
+      return await loader.loadAsync(url);
+    } catch {
+      // não existe ou não carregou: tenta o próximo
+    }
+  }
+  return null;
+}
+
+loadFirstModel().then((gltf) => {
+  if (!gltf) {
+    return;
+  }
+  const model = gltf.scene;
+  // Cada modelo vem na sua própria escala e posição (no Fox, 1 unidade ≈
+  // 1 cm). Normalizar: maior dimensão = MODEL_SIZE, centro em X/Z na origem
+  // e pés em Y = 0, para ficar apoiado na superfície.
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  model.scale.setScalar(MODEL_SIZE / Math.max(size.x, size.y, size.z));
+  box.setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.set(-center.x, -box.min.y, -center.z);
+  content.remove(cube);
+  content.add(model);
+  if (gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(model);
+    mixer.clipAction(gltf.animations[0]).play();
+  }
+});
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Botões − e +: cada toque multiplica/divide o tamanho por este fator.
+const SCALE_STEP = 1.25;
+const MIN_SCALE = 0.2;
+const MAX_SCALE = 10;
+
+function resize(factor) {
+  const scale = THREE.MathUtils.clamp(content.scale.x * factor, MIN_SCALE, MAX_SCALE);
+  content.scale.setScalar(scale);
+}
 
 // ---------- Suporte ----------
 
@@ -71,6 +140,7 @@ const hint = document.getElementById('hint');
 const status = document.getElementById('status');
 const arButton = document.getElementById('btn-ar');
 const exitButton = document.getElementById('btn-exit');
+const controls = document.getElementById('controls');
 
 // Devolve null se dá para entrar em AR, ou o motivo de não dar.
 async function unsupportedReason() {
@@ -123,7 +193,7 @@ async function enterAR() {
     return;
   }
   session.addEventListener('end', onSessionEnd);
-  session.addEventListener('select', placeCube);
+  session.addEventListener('select', place);
 
   renderer.xr.setReferenceSpaceType('local');
   await renderer.xr.setSession(session);
@@ -149,8 +219,8 @@ function onSessionEnd() {
   startScreen.hidden = false;
 }
 
-// Toque na tela (evento 'select' do WebXR): põe o cubo onde está a retícula.
-function placeCube() {
+// Toque na tela (evento 'select' do WebXR): põe o cubo/modelo onde está a retícula.
+function place() {
   if (!lastHit) {
     return;
   }
@@ -170,6 +240,12 @@ function placeCube() {
   // Até a âncora existir (ou se não houver suporte): pose fixa da retícula.
   holder.matrix.copy(reticle.matrix);
   holder.visible = true;
+  // De frente para quem tocou: posição da câmera no referencial do suporte →
+  // ângulo em volta do eixo Y (a normal da superfície). Modelos glTF olham
+  // para +Z, e atan2(x, z) é o giro que leva +Z até a câmera.
+  holder.updateMatrixWorld(true);
+  const viewer = holder.worldToLocal(renderer.xr.getCamera().getWorldPosition(new THREE.Vector3()));
+  content.rotation.y = Math.atan2(viewer.x, viewer.z);
   placed = true;
   hint.textContent = 'Ande em volta. Toque de novo para mudar de lugar.';
 }
@@ -178,9 +254,11 @@ arButton.addEventListener('click', enterAR);
 exitButton.addEventListener('click', () => {
   renderer.xr.getSession()?.end();
 });
+document.getElementById('btn-smaller').addEventListener('click', () => resize(1 / SCALE_STEP));
+document.getElementById('btn-bigger').addEventListener('click', () => resize(SCALE_STEP));
 // Com DOM overlay, tocar num elemento HTML também geraria 'select' (e moveria
-// o cubo). Cancelar este evento evita isso no botão "Sair".
-exitButton.addEventListener('beforexrselect', (event) => event.preventDefault());
+// o objeto). Cancelar este evento evita isso nos botões.
+controls.addEventListener('beforexrselect', (event) => event.preventDefault());
 
 // ---------- Loop ----------
 
@@ -195,7 +273,7 @@ renderer.setAnimationLoop((time, frame) => {
     if (lastHit) {
       reticle.matrix.fromArray(lastHit.getPose(refSpace).transform.matrix);
       if (!placed && !reticle.visible) {
-        hint.textContent = 'Toque para pôr o cubo.';
+        hint.textContent = 'Toque para posicionar.';
       }
     }
     reticle.visible = lastHit !== null;
@@ -207,5 +285,6 @@ renderer.setAnimationLoop((time, frame) => {
       }
     }
   }
+  mixer?.update(clock.getDelta());
   renderer.render(scene, camera);
 });

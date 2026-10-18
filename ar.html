@@ -19,11 +19,16 @@
     /* Raiz do DOM overlay: fica por cima da câmera durante a sessão AR. */
     #overlay { position: fixed; inset: 0; display: flex; flex-direction: column;
       justify-content: space-between; align-items: center; padding: 1em; box-sizing: border-box; }
+    #controls { display: flex; gap: 0.5em; }
+    #controls button { min-width: 3em; }
     #hint { margin: 0; padding: 0.4em 0.8em; border-radius: 0.4em; background: #000a; text-align: center; }
     [hidden] { display: none !important; }
   </style>
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
   </script>
 </head>
 <body>
@@ -39,7 +44,11 @@
 
   <div id="overlay" hidden>
     <p id="hint">Iniciando o rastreamento…</p>
-    <button id="btn-exit">Sair</button>
+    <div id="controls">
+      <button id="btn-smaller" aria-label="Diminuir">−</button>
+      <button id="btn-exit">Sair</button>
+      <button id="btn-bigger" aria-label="Aumentar">+</button>
+    </div>
   </div>
 
   <script type="module" src="ar.js"></script>

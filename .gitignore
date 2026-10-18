@@ -12,3 +12,7 @@ Thumbs.db
 
 # Node (caso surja algum tooling opcional)
 node_modules/
+
+# Modelo 3D pessoal, só para teste local (pode ter direitos autorais — não publicar)
+models/personagem.glb
+models/personagem/
