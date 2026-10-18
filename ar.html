@@ -22,7 +22,7 @@
     #controls { display: flex; flex-direction: column; align-items: center; gap: 0.5em; }
     #controls .row { display: flex; gap: 0.5em; }
     #controls .row button { min-width: 3em; }
-    #btn-model { background: #000a; }
+    #btn-model, #btn-light { background: #000a; }
     #hint { margin: 0; padding: 0.4em 0.8em; border-radius: 0.4em; background: #000a; text-align: center; }
     [hidden] { display: none !important; }
   </style>
@@ -47,7 +47,10 @@
   <div id="overlay" hidden>
     <p id="hint">Iniciando o rastreamento…</p>
     <div id="controls">
-      <button id="btn-model">Cubo</button>
+      <div class="row">
+        <button id="btn-model">Cubo</button>
+        <button id="btn-light">Luz</button>
+      </div>
       <div class="row">
         <button id="btn-smaller" aria-label="Diminuir">−</button>
         <button id="btn-exit">Sair</button>

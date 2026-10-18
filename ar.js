@@ -6,10 +6,13 @@
 //
 // Fluxo: uma retícula (anel) mostra onde o raio que sai do centro da tela
 // encontra uma superfície real (hit-test); o toque põe o cubo ali.
-// Um botão troca o cubo pelos modelos 3D listados em models/.
+// Um botão troca o cubo pelos modelos 3D listados em models/; outro alterna a
+// iluminação entre fixa e estimada pelo ARCore, para comparar.
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { XREstimatedLight } from 'three/addons/webxr/XREstimatedLight.js';
 
 // Unidades do WebXR são metros.
 const CUBE_SIZE = 0.2;
@@ -41,13 +44,16 @@ scene.add(reticle);
 // O cubo fica dentro de um "suporte" cuja matriz é a pose do ponto escolhido
 // na superfície. Dentro do suporte, `content` é o que o usuário controla:
 // giro (de frente para ele) e tamanho (botões − e +). Como sua origem é o
-// ponto de apoio, escalar não afunda nem levanta o objeto.
+// ponto de apoio, escalar não afunda nem levanta o objeto. `content` guarda o
+// objeto à vista (em `slot`, trocado pelo botão de modelo) e a sombra.
 const holder = new THREE.Group();
 holder.matrixAutoUpdate = false;
 holder.visible = false;
 scene.add(holder);
 const content = new THREE.Group();
 holder.add(content);
+const slot = new THREE.Group();
+content.add(slot);
 
 // Mesmo cubo da fase 1, em escala real. Ordem das faces: +X, −X, +Y, −Y, +Z, −Z.
 const faceColors = [0xe74c3c, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0x3498db, 0xe67e22];
@@ -61,7 +67,8 @@ cube.add(new THREE.LineSegments(
 ));
 // Sobe meia aresta para apoiar no chão em vez de ficar enterrado pela metade.
 cube.position.y = CUBE_SIZE / 2;
-content.add(cube);
+cube.castShadow = true;
+slot.add(cube);
 
 // ---------- Modelos 3D ----------
 
@@ -81,13 +88,6 @@ const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 const loadedModels = new Map(); // url → Promise de { object, mixer }, cada um carregado uma vez só
 const modelButton = document.getElementById('btn-model');
-
-// O cubo usa cores chapadas (MeshBasicMaterial), mas modelos glTF vêm com
-// materiais que dependem de luz: uma luz ambiente (céu/chão) e um "sol".
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-const sun = new THREE.DirectionalLight(0xffffff, 2);
-sun.position.set(1, 2, 1);
-scene.add(sun);
 
 async function readModelList(url) {
   try {
@@ -109,6 +109,9 @@ function normalize(gltf) {
   box.setFromObject(model);
   const center = box.getCenter(new THREE.Vector3());
   model.position.set(-center.x, -box.min.y, -center.z);
+  model.traverse((child) => {
+    child.castShadow = child.isMesh;
+  });
 
   let modelMixer = null;
   if (gltf.animations.length > 0) {
@@ -144,8 +147,8 @@ async function showModel(index) {
   if (request !== showRequests) {
     return; // o usuário já pediu outro modelo enquanto este carregava
   }
-  content.clear();
-  content.add(shown.object);
+  slot.clear();
+  slot.add(shown.object);
   mixer = shown.mixer;
 }
 
@@ -159,6 +162,121 @@ modelButton.addEventListener('click', () => {
     showModel((modelIndex + 1) % models.length);
   }
 });
+
+// ---------- Luz e sombra ----------
+
+// O cubo usa cores chapadas (MeshBasicMaterial), mas modelos glTF vêm com
+// materiais físicos (PBR), que dependem da luz e dos reflexos do ambiente.
+// Dois modos, alternados pelo botão de luz:
+// - fixa: luz céu/chão + um "sol" numa direção fixa + reflexos de uma sala
+//   genérica (RoomEnvironment);
+// - ARCore: o WebXR ('light-estimation') estima pela câmera a luz do ambiente
+//   real — luz ambiente, direção/cor/intensidade da luz principal e um mapa
+//   de reflexos. O addon XREstimatedLight entrega isso como luzes do Three.js.
+const FIXED_SUN_DIRECTION = new THREE.Vector3(1, 2, 1).normalize();
+const FIXED_SUN_INTENSITY = 1.5;
+// O sol fica a esta distância do objeto, na direção da luz, mirando nele.
+const SUN_DISTANCE = 3;
+
+renderer.shadowMap.enabled = true;
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+const roomEnvironment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = roomEnvironment;
+
+const hemisphere = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+scene.add(hemisphere);
+
+// O sol é sempre esta luz — no modo ARCore ela copia a estimativa —, porque
+// é ela que projeta a sombra e precisa acompanhar o objeto (ver aimSun).
+const sun = new THREE.DirectionalLight(0xffffff, FIXED_SUN_INTENSITY);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+
+// Plano que só mostra a sombra: o resto dele é transparente e o chão real
+// aparece. Fica em `content`, então acompanha o tamanho do objeto.
+const shadowPlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(MODEL_SIZE * 3, MODEL_SIZE * 3).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.35 }),
+);
+shadowPlane.receiveShadow = true;
+content.add(shadowPlane);
+
+const estimatedLight = new XREstimatedLight(renderer);
+estimatedLight.directionalLight.visible = false; // quem ilumina é o sol, com os valores dela
+let estimating = false;      // o ARCore está mandando estimativas
+let wantsEstimate = true;    // escolha do usuário no botão de luz
+const lightButton = document.getElementById('btn-light');
+
+estimatedLight.addEventListener('estimationstart', () => {
+  estimating = true;
+  updateLightMode();
+});
+estimatedLight.addEventListener('estimationend', () => {
+  estimating = false;
+  updateLightMode();
+});
+
+function usingEstimate() {
+  return estimating && wantsEstimate;
+}
+
+function updateLightMode() {
+  const arcore = usingEstimate();
+  if (arcore) {
+    scene.add(estimatedLight); // traz a luz ambiente estimada (light probe)
+  } else {
+    scene.remove(estimatedLight);
+    sun.color.set(0xffffff);
+    sun.intensity = FIXED_SUN_INTENSITY;
+  }
+  hemisphere.visible = !arcore;
+  scene.environment = (arcore && estimatedLight.environment) || roomEnvironment;
+  if (arcore) {
+    lightButton.textContent = 'Luz: ARCore ⟳';
+  } else if (estimating || !wantsEstimate) {
+    lightButton.textContent = 'Luz: fixa ⟳';
+  } else {
+    lightButton.textContent = 'Luz: fixa (sem estimativa)';
+  }
+}
+updateLightMode();
+
+lightButton.addEventListener('click', () => {
+  wantsEstimate = !wantsEstimate;
+  updateLightMode();
+});
+
+const holderPosition = new THREE.Vector3();
+const sunDirection = new THREE.Vector3();
+
+// A cada quadro: põe o sol na direção da luz (fixa ou estimada), mirando no
+// objeto, e ajusta a área coberta pela sombra ao tamanho dele.
+function aimSun() {
+  sunDirection.copy(FIXED_SUN_DIRECTION);
+  if (usingEstimate()) {
+    const estimate = estimatedLight.directionalLight;
+    sun.color.copy(estimate.color);
+    sun.intensity = estimate.intensity;
+    if (estimate.position.lengthSq() > 1e-6) {
+      sunDirection.copy(estimate.position).normalize();
+    }
+  }
+  holder.getWorldPosition(holderPosition);
+  sun.target.position.copy(holderPosition);
+  sun.target.updateMatrixWorld();
+  sun.position.copy(holderPosition).addScaledVector(sunDirection, SUN_DISTANCE);
+
+  const radius = MODEL_SIZE * content.scale.x;
+  const shadowCamera = sun.shadow.camera;
+  shadowCamera.left = shadowCamera.bottom = -radius;
+  shadowCamera.right = shadowCamera.top = radius;
+  shadowCamera.near = 0.1;
+  shadowCamera.far = SUN_DISTANCE + 2 * radius;
+  shadowCamera.updateProjectionMatrix();
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -228,7 +346,8 @@ async function enterAR() {
       // Anchors: ponto que o ARCore mantém preso ao mundo real mesmo quando
       // corrige o mapa — sem ela, o cubo fica numa coordenada fixa e pode
       // "escorregar" quando o rastreamento se ajusta.
-      optionalFeatures: ['dom-overlay', 'anchors'],
+      // Light estimation: estimativa da luz real (ver "Luz e sombra").
+      optionalFeatures: ['dom-overlay', 'anchors', 'light-estimation'],
       domOverlay: { root: overlay },
     });
   } catch (error) {
@@ -330,5 +449,6 @@ renderer.setAnimationLoop((time, frame) => {
     }
   }
   mixer?.update(clock.getDelta());
+  aimSun();
   renderer.render(scene, camera);
 });

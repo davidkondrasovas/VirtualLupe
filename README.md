@@ -55,6 +55,10 @@ não carregam.
 Cada modelo é redimensionado para ~60 cm e, ao ser posicionado, fica de frente para quem tocou;
 os botões − e + ajustam o tamanho.
 
+O botão de luz alterna entre iluminação **fixa** e **estimada pelo ARCore** (WebXR
+`light-estimation`: luz ambiente, direção/cor da luz principal e reflexos do ambiente real). Nos
+dois modos o objeto projeta sombra no chão.
+
 ## Testar no celular
 
 Os sensores só funcionam em **contexto seguro** (HTTPS ou `localhost`).
